@@ -3,10 +3,13 @@
  * kit icons, a gold stroke under the active item), and on phones a strip of event pills at the
  * top plus a tab bar at the bottom.
  */
+import type { BudgetEvent } from '../../domain/types';
 import { KIT, type KitName } from '../kit';
 import { useBudgetStore, useResult } from '../../store';
 import { Kit } from '../components/Kit';
-import { eventHref, hrefOf, type Route } from '../router';
+import { eventHref, hrefOf, navigate, type Route } from '../router';
+import { dragKind, endDrag, pasteClip, startDrag, useClip } from '../transfer';
+import { useDrop } from '../useDrop';
 import { openDialog } from '../uiStore';
 import { AddEventDialog } from '../views/AddEventDialog';
 
@@ -28,6 +31,48 @@ function useNavData() {
   const withIssues = new Set(R?.issues.map((i) => i.ev));
   const paramErrors = R ? Object.keys(R.globalErrors).length + Object.keys(R.priceErrors).length > 0 : false;
   return { events, withIssues, paramErrors };
+}
+
+/**
+ * An event in the sidebar. Drag it up or down to reorder (Ctrl: a copy). Drop lines, income,
+ * params or a category on it to copy them into that event (Shift: move).
+ */
+function SideEvent({ e, on, issue }: { e: BudgetEvent; on: boolean; issue: boolean }) {
+  const drop = useDrop({ kind: 'event', evId: e.id });
+  const marker = drop.over ? (dragKind() === 'event' ? 'drop-before' : 'drop-into') : '';
+  return (
+    <a
+      className={`nav-item nav-event ${on ? 'on' : ''} ${e.active ? '' : 'off'} ${marker}`}
+      href={eventHref(e.id)}
+      aria-current={on ? 'page' : undefined}
+      title={e.active ? 'אפשר לגרור לכאן שורות, פרמטרים וקטגוריות' : 'לא נכלל בתקציב'}
+      draggable
+      onDragStart={(ev) => startDrag(ev, { kind: 'event', evId: e.id }, ev.currentTarget)}
+      onDragEnd={endDrag}
+      {...drop.props}
+    >
+      <span className="label">{e.name || 'מפעל ללא שם'}</span>
+      {issue && <span className="dot" title="יש מה לבדוק" aria-label="יש מה לבדוק" />}
+    </a>
+  );
+}
+
+/** "Paste the event" when an event (maybe from another budget) is on the clipboard. */
+function PasteEvent({ className }: { className: string }) {
+  const clip = useClip((s) => s.clip);
+  if (clip?.kind !== 'event') return null;
+  return (
+    <button
+      className={className}
+      onClick={async () => {
+        const res = await pasteClip({ kind: 'budget' });
+        const id = res?.ids[0];
+        if (id) navigate(eventHref(id));
+      }}
+    >
+      הדבקת "{clip.event.name}"
+    </button>
+  );
 }
 
 function PageLink({ p, route, dot }: { p: Page; route: Route; dot?: boolean }) {
@@ -58,24 +103,13 @@ export function Sidebar({ route }: { route: Route }) {
 
       <div className="side-group">
         <span className="side-title">מפעלים</span>
-        {events.map((e) => {
-          const on = route.view === 'event' && route.evId === e.id;
-          return (
-            <a
-              key={e.id}
-              className={`nav-item nav-event ${on ? 'on' : ''} ${e.active ? '' : 'off'}`}
-              href={eventHref(e.id)}
-              aria-current={on ? 'page' : undefined}
-              title={e.active ? undefined : 'לא נכלל בתקציב'}
-            >
-              <span className="label">{e.name || 'מפעל ללא שם'}</span>
-              {withIssues.has(e.id) && <span className="dot" title="יש מה לבדוק" aria-label="יש מה לבדוק" />}
-            </a>
-          );
-        })}
+        {events.map((e) => (
+          <SideEvent key={e.id} e={e} on={route.view === 'event' && route.evId === e.id} issue={withIssues.has(e.id)} />
+        ))}
         <button className="btn small side-add" title="הוספת מפעל" onClick={addEvent}>
           + מפעל
         </button>
+        <PasteEvent className="btn small primary side-add" />
       </div>
 
       <div className="side-group">
@@ -108,6 +142,7 @@ export function MobileEvents({ route }: { route: Route }) {
       <button title="הוספת מפעל" onClick={addEvent}>
         + מפעל
       </button>
+      <PasteEvent className="paste" />
     </nav>
   );
 }

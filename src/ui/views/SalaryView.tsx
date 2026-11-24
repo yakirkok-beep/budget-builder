@@ -2,10 +2,14 @@
 import { useState } from 'react';
 import { constField, minimumWage, SALARY_LEVEL_KEY } from '../../domain/compute';
 import { countSalaryUses } from '../../domain/rename';
-import { LEVELS } from '../../domain/types';
+import { LEVELS, type BudgetResult, type SalaryRow } from '../../domain/types';
 import { budgetStore, useBudgetStore, useResult } from '../../store';
 import { fmt } from '../format';
+import { DragHandle } from '../components/DragHandle';
+import { RowMenu } from '../components/RowMenu';
+import { useDrop } from '../useDrop';
 import { FxInput, KeyInput, TextInput } from '../components/inputs';
+import { copySalary, pasteClip, useClip } from '../transfer';
 import { confirmDialog } from '../uiStore';
 import { PageHead } from '../components/PageHead';
 
@@ -47,6 +51,9 @@ export function SalaryView() {
         <table>
           <thead>
             <tr>
+              <th>
+                <span className="sr-only">גרירה</span>
+              </th>
               <th>סוג אירוע</th>
               <th className="n">שעות</th>
               <th className="n">שכר מינימום</th>
@@ -57,44 +64,14 @@ export function SalaryView() {
               ))}
               <th>הערות</th>
               <th>
-                <span className="sr-only">מחיקה</span>
+                <span className="sr-only">פעולות</span>
               </th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
-              const mw = minimumWage(r.hours, R.globals);
-              return (
-                <tr key={r.id}>
-                  <td style={{ width: '20%' }}>
-                    <KeyInput value={r.name} label="סוג אירוע" autoFocus={r.id === focusId} onCommit={(n) => act().renameSalaryRow(r.id, n)} />
-                  </td>
-                  <td style={{ width: '8%' }}>
-                    <FxInput value={r.hours} label={'שעות ' + r.name} result={constField(r.hours)} onChange={(v) => act().setSalaryField(r.id, 'hours', v)} />
-                  </td>
-                  <td className="n muted">{mw != null ? fmt(mw) : ''}</td>
-                  {LEVELS.map((l) => (
-                    <td key={l} style={{ width: '10%' }} className={l === level ? 'lvl-on' : ''}>
-                      <FxInput
-                        value={r.levels[l]}
-                        label={`${l} ${r.name}`}
-                        result={constField(r.levels[l])}
-                        testId={`salary-${r.name}-${l}`}
-                        onChange={(v) => act().setSalaryLevel(r.id, l, v)}
-                      />
-                    </td>
-                  ))}
-                  <td>
-                    <TextInput value={r.note} label={'הערה ' + r.name} onChange={(v) => act().setSalaryField(r.id, 'note', v)} />
-                  </td>
-                  <td>
-                    <button className="iconbtn" aria-label={'מחיקת ' + r.name} onClick={() => void deleteRow(r.id, r.name)}>
-                      ×
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+            {rows.map((r) => (
+              <SalaryRowView key={r.id} r={r} R={R} level={level} autoFocus={r.id === focusId} />
+            ))}
           </tbody>
         </table>
       </div>
@@ -102,8 +79,65 @@ export function SalaryView() {
         <button className="btn small" onClick={() => setFocusId(act().addSalaryRow())}>
           + סוג אירוע
         </button>
+        <PasteSalary />
       </div>
     </section>
     </>
+  );
+}
+
+function SalaryRowView({ r, R, level, autoFocus }: { r: SalaryRow; R: BudgetResult; level: string; autoFocus: boolean }) {
+  const drop = useDrop({ kind: 'salary', id: r.id });
+  const mw = minimumWage(r.hours, R.globals);
+  return (
+    <tr className={drop.over ? 'drop-before' : ''} {...drop.props}>
+      <td className="grip">
+        <DragHandle payload={{ kind: 'salary', id: r.id }} label={'גרירת ' + r.name} />
+      </td>
+      <td style={{ width: '20%' }}>
+        <KeyInput value={r.name} label="סוג אירוע" autoFocus={autoFocus} onCommit={(n) => act().renameSalaryRow(r.id, n)} />
+      </td>
+      <td style={{ width: '8%' }}>
+        <FxInput value={r.hours} label={'שעות ' + r.name} result={constField(r.hours)} onChange={(v) => act().setSalaryField(r.id, 'hours', v)} />
+      </td>
+      <td className="n muted">{mw != null ? fmt(mw) : ''}</td>
+      {LEVELS.map((l) => (
+        <td key={l} style={{ width: '10%' }} className={l === level ? 'lvl-on' : ''}>
+          <FxInput
+            value={r.levels[l]}
+            label={`${l} ${r.name}`}
+            result={constField(r.levels[l])}
+            testId={`salary-${r.name}-${l}`}
+            onChange={(v) => act().setSalaryLevel(r.id, l, v)}
+          />
+        </td>
+      ))}
+      <td>
+        <TextInput value={r.note} label={'הערה ' + r.name} onChange={(v) => act().setSalaryField(r.id, 'note', v)} />
+      </td>
+      <td className="row-actions">
+        <RowMenu
+          label={'פעולות על ' + r.name}
+          items={[
+            { label: 'שכפול', onSelect: () => act().duplicateSalaryRow(r.id) },
+            { label: 'העתקה (לתקציב אחר)', onSelect: () => copySalary([r.id]) },
+            { label: 'מחיקה', danger: true, onSelect: () => void deleteRow(r.id, r.name) },
+          ]}
+        />
+        <button className="iconbtn" aria-label={'מחיקת ' + r.name} onClick={() => void deleteRow(r.id, r.name)}>
+          ×
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function PasteSalary() {
+  const clip = useClip((s) => s.clip);
+  if (clip?.kind !== 'salary') return null;
+  return (
+    <button className="btn small primary" onClick={() => void pasteClip({ kind: 'budget' })}>
+      הדבקה לטבלת השכר
+    </button>
   );
 }

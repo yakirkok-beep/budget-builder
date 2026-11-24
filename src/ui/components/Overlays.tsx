@@ -1,6 +1,6 @@
 /** Page dialogs and the toast, rendered once at the app root. */
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { closeConfirm, useUi } from '../uiStore';
+import { closeChoice, closeConfirm, useUi } from '../uiStore';
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: ReactNode }) {
   const titleId = useId();
@@ -48,6 +48,31 @@ function ConfirmHost() {
   );
 }
 
+function ChoiceHost() {
+  const c = useUi((s) => s.choiceState);
+  if (!c) return null;
+  return (
+    <Modal title={c.title} onClose={() => closeChoice(null)}>
+      <p>{c.message}</p>
+      <div className="row">
+        {c.choices.map((ch, i) => (
+          <button
+            key={ch.value}
+            className={`btn ${ch.primary ? 'primary' : ''} ${ch.danger ? 'danger' : ''}`}
+            data-autofocus={i === 0 ? true : undefined}
+            onClick={() => closeChoice(ch.value)}
+          >
+            {ch.label}
+          </button>
+        ))}
+        <button className="btn" onClick={() => closeChoice(null)}>
+          ביטול
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function DialogHost() {
   const d = useUi((s) => s.dialog);
   return d ? <>{d}</> : null;
@@ -66,6 +91,7 @@ export function Overlays() {
   return (
     <>
       <ConfirmHost />
+      <ChoiceHost />
       <DialogHost />
       <ToastHost />
     </>

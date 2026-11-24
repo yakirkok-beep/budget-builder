@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { budgetStore, useBudgetStore } from './store';
+import { ClipboardBar } from './ui/components/ClipboardBar';
 import { Overlays } from './ui/components/Overlays';
 import { Header } from './ui/layout/Header';
 import { Ledger } from './ui/layout/Ledger';
@@ -61,6 +62,7 @@ export function App() {
         </div>
         <footer className="foot">הנתונים שמורים רק בדפדפן הזה. מומלץ לייצא גיבוי מדי פעם.</footer>
       </div>
+      {loaded && <ClipboardBar route={route} />}
       {loaded && <TabBar route={route} />}
       <Overlays />
     </div>

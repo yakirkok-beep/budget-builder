@@ -3,6 +3,7 @@ import { budgetStore, useBudgetStore, useResult } from '../../../store';
 import { TextInput } from '../../components/inputs';
 import { PageHead } from '../../components/PageHead';
 import { eventHref, navigate } from '../../router';
+import { copyEvent } from '../../transfer';
 import { confirmDialog, toast } from '../../uiStore';
 import { CategoriesCard } from './CategoriesCard';
 import { EventNames } from './EventNames';
@@ -58,6 +59,9 @@ export function EventView({ evId }: { evId: string }) {
               }}
             >
               שכפול מפעל
+            </button>
+            <button className="btn small" title="להדבקה בתקציב אחר (או באותו תקציב)" onClick={() => copyEvent(ev.id)}>
+              העתקת מפעל
             </button>
             <button className="btn small danger" onClick={() => void remove()}>
               מחיקת מפעל

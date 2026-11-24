@@ -11,6 +11,8 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { immer } from 'zustand/middleware/immer';
 import * as E from '../domain/edit';
+import * as C from '../domain/clipboard';
+import type { Clip, ConflictMode, PasteResult } from '../domain/clipboard';
 import { migrate, MigrateError } from '../domain/migrate';
 import { renameCategory, renameParam, renamePrice, renameSalaryRow, type RenameResult } from '../domain/rename';
 import { addEvent, clone, type EventSource } from '../domain/templates';
@@ -119,6 +121,31 @@ export interface BudgetState {
   setCategoryField(evId: string, id: string, field: 'code' | 'period' | 'plan' | 'act', value: string | number | null): void;
   renameCategory(evId: string, id: string, name: string): RenameResult;
   deleteCategory(evId: string, id: string): void;
+
+  /* copy, paste, move, duplicate (domain/clipboard.ts) */
+  paste(target: PasteTarget, clip: Clip, mode?: ConflictMode): PasteResult;
+  moveLines(evId: string, ids: string[], opts: { cat?: string; beforeId?: string | null }): void;
+  transferLines(fromEvId: string, ids: string[], toEvId: string, opts?: { cat?: string }): PasteResult;
+  transferIncome(fromEvId: string, ids: string[], toEvId: string): PasteResult;
+  transferCategory(fromEvId: string, catId: string, toEvId: string): PasteResult;
+  reorder(what: 'params' | 'income' | 'cats', evId: string, id: string, beforeId: string | null): void;
+  reorderBudget(what: 'events' | 'prices' | 'salary', id: string, beforeId: string | null): void;
+  duplicateLines(evId: string, ids: string[]): string[];
+  duplicateIncome(evId: string, id: string): string;
+  duplicateParam(evId: string, id: string): string;
+  duplicateCategory(evId: string, catId: string): string;
+  duplicatePrice(id: string): string;
+  duplicateSalaryRow(id: string): string;
+  deleteLines(evId: string, ids: string[]): void;
+}
+
+/** Where a clip is pasted: into an event (lines also into a category / before a line), or into the budget. */
+export type PasteTarget = { kind: 'event'; evId: string; cat?: string; beforeId?: string | null } | { kind: 'budget' };
+
+/** Which clip kinds a target accepts. */
+export function accepts(target: PasteTarget, clip: Clip): boolean {
+  if (target.kind === 'event') return ['lines', 'income', 'params', 'category'].includes(clip.kind);
+  return ['event', 'prices', 'salary'].includes(clip.kind);
 }
 
 export type BudgetStore = StoreApi<BudgetState>;
@@ -445,6 +472,42 @@ export function createBudgetStore(deps: StoreDeps): BudgetStore {
           mutate((d) => E.setCategoryField(d, evId, id, field, value), field === 'period' ? undefined : `c:${id}:${field}`),
         renameCategory: (evId, id, name) => rename((d) => renameCategory(d, evId, id, name)),
         deleteCategory: (evId, id) => mutate((d) => E.deleteCategory(d, evId, id)),
+
+        paste: (target, clip, mode = 'skip') =>
+          mutate((d): PasteResult => {
+            if (!accepts(target, clip)) return { ids: [], notes: ['אי אפשר להדביק את זה כאן'] };
+            switch (clip.kind) {
+              case 'lines':
+                return target.kind === 'event' ? C.pasteLines(d, target.evId, clip, { cat: target.cat, beforeId: target.beforeId }) : { ids: [], notes: [] };
+              case 'income':
+                return target.kind === 'event' ? C.pasteIncome(d, target.evId, clip, target.beforeId ?? null) : { ids: [], notes: [] };
+              case 'params':
+                return target.kind === 'event' ? C.pasteParams(d, target.evId, clip, mode) : { ids: [], notes: [] };
+              case 'category':
+                return target.kind === 'event' ? C.pasteCategory(d, target.evId, clip) : { ids: [], notes: [] };
+              case 'event':
+                return C.pasteEvent(d, clip);
+              case 'prices':
+                return C.pastePrices(d, clip, mode);
+              case 'salary':
+                return C.pasteSalary(d, clip, mode);
+            }
+          }),
+        moveLines: (evId, ids, opts) => mutate((d) => C.moveLines(d, evId, ids, opts)),
+        transferLines: (fromEvId, ids, toEvId, opts) => mutate((d) => C.transferLines(d, fromEvId, ids, toEvId, opts)),
+        transferIncome: (fromEvId, ids, toEvId) => mutate((d) => C.transferIncome(d, fromEvId, ids, toEvId)),
+        transferCategory: (fromEvId, catId, toEvId) => mutate((d) => C.transferCategory(d, fromEvId, catId, toEvId)),
+        reorder: (what, evId, id, beforeId) =>
+          mutate((d) => (what === 'params' ? C.moveParam : what === 'income' ? C.moveIncome : C.moveCategory)(d, evId, id, beforeId)),
+        reorderBudget: (what, id, beforeId) =>
+          mutate((d) => (what === 'events' ? C.moveEventTo : what === 'prices' ? C.movePrice : C.moveSalaryRow)(d, id, beforeId)),
+        duplicateLines: (evId, ids) => mutate((d) => C.duplicateLines(d, evId, ids)),
+        duplicateIncome: (evId, id) => mutate((d) => C.duplicateIncome(d, evId, id)),
+        duplicateParam: (evId, id) => mutate((d) => C.duplicateParam(d, evId, id)),
+        duplicateCategory: (evId, catId) => mutate((d) => C.duplicateCategory(d, evId, catId)),
+        duplicatePrice: (id) => mutate((d) => C.duplicatePrice(d, id)),
+        duplicateSalaryRow: (id) => mutate((d) => C.duplicateSalaryRow(d, id)),
+        deleteLines: (evId, ids) => mutate((d) => C.deleteLines(d, evId, ids)),
       };
     }),
   );

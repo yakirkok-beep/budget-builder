@@ -29,7 +29,7 @@ const removeFrom = <T extends { id: string }>(list: T[], id: string): void => {
 };
 
 /** "base", then "base_2", "base_3"... (or with a space) until unused. */
-const uniqueName = (base: string, taken: (n: string) => boolean, sep = '_'): string => {
+export const uniqueName = (base: string, taken: (n: string) => boolean, sep = '_'): string => {
   let n = base;
   let i = 1;
   while (taken(n)) n = base + sep + ++i;
