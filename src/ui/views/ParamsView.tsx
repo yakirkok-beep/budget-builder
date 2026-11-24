@@ -1,0 +1,144 @@
+/** Global parameters and the price list (CLAUDE.md section 8.4). */
+import { useState } from 'react';
+import { SALARY_LEVEL_KEY } from '../../domain/compute';
+import { countNameUses } from '../../domain/rename';
+import { LEVELS, type FieldResult } from '../../domain/types';
+import { budgetStore, useBudgetStore, useResult } from '../../store';
+import { FxInput, KeyInput, TextInput } from '../components/inputs';
+import { confirmDialog } from '../uiStore';
+
+const act = () => budgetStore.getState();
+
+async function deletePrice(id: string, key: string): Promise<void> {
+  const b = act().budget;
+  const uses = b ? countNameUses(b, key) : 0;
+  if (uses > 0) {
+    const ok = await confirmDialog({
+      title: 'מחיקת פריט מהמחירון',
+      message: `"${key}" משמש ב-${uses === 1 ? 'נוסחה אחת' : uses + ' נוסחאות'}. אחרי המחיקה הן יציגו שגיאה. למחוק?`,
+      ok: 'מחיקה',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  act().deletePrice(id);
+}
+
+export function ParamsView() {
+  const globals = useBudgetStore((s) => s.budget!.globals);
+  const notes = useBudgetStore((s) => s.budget!.globalNotes);
+  const prices = useBudgetStore((s) => s.budget!.prices);
+  const R = useResult()!;
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  const globalResult = (k: string): FieldResult => (R.globalErrors[k] ? { err: R.globalErrors[k]! } : { v: R.globals[k] ?? null });
+
+  return (
+    <div className="grid2">
+      <section className="card" aria-labelledby="globals-title">
+        <h3 id="globals-title">
+          פרמטרים כלליים <span className="hint">משפיעים על כל המפעלים</span>
+        </h3>
+        <div className="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>שם בנוסחאות</th>
+                <th>ערך</th>
+                <th>הסבר</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(globals).map((k) => (
+                <tr key={k}>
+                  <td style={{ paddingTop: 8 }}>
+                    <span className="kbd">{k}</span>
+                  </td>
+                  <td style={{ width: '24%' }}>
+                    {k === SALARY_LEVEL_KEY ? (
+                      <select
+                        className="cell val"
+                        value={String(globals[k])}
+                        aria-label="רמת שכר מנחים"
+                        data-testid="salary-level"
+                        onChange={(e) => act().setGlobal(k, e.target.value)}
+                      >
+                        {LEVELS.map((l) => (
+                          <option key={l}>{l}</option>
+                        ))}
+                        {!LEVELS.includes(String(globals[k]) as (typeof LEVELS)[number]) && <option>{String(globals[k])}</option>}
+                      </select>
+                    ) : (
+                      <FxInput value={globals[k]!} label={k} result={globalResult(k)} testId={`global-${k}`} onChange={(v) => act().setGlobal(k, v)} />
+                    )}
+                  </td>
+                  <td className="muted" style={{ paddingTop: 8 }}>
+                    {notes[k] ?? ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="muted" style={{ fontSize: 12 }}>
+          אחוזים כשבר עשרוני: 0.07 = 7%. אפשר גם לכתוב 7%.
+        </p>
+      </section>
+
+      <section className="card" aria-labelledby="prices-title">
+        <h3 id="prices-title">
+          מחירון <span className="hint">שינוי שם מעדכן את כל הנוסחאות שמשתמשות בו</span>
+        </h3>
+        <div className="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>שם בנוסחאות</th>
+                <th>תיאור</th>
+                <th className="n">מחיר ₪</th>
+                <th>יחידה</th>
+                <th>
+                  <span className="sr-only">מחיקה</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {prices.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ width: '24%' }}>
+                    <KeyInput value={p.key} label="שם בנוסחאות" autoFocus={p.id === focusId} onCommit={(k) => act().renamePrice(p.id, k)} />
+                  </td>
+                  <td>
+                    <TextInput value={p.label} label={'תיאור ' + p.key} onChange={(v) => act().setPriceField(p.id, 'label', v)} />
+                  </td>
+                  <td style={{ width: '15%' }}>
+                    <FxInput
+                      value={p.value}
+                      label={'מחיר ' + p.key}
+                      result={R.priceErrors[p.id] ? { err: R.priceErrors[p.id]! } : { v: R.prices[p.key] ?? null }}
+                      testId={`price-${p.key}`}
+                      onChange={(v) => act().setPriceField(p.id, 'value', v)}
+                    />
+                  </td>
+                  <td style={{ width: '16%' }}>
+                    <TextInput value={p.unit} label={'יחידה ' + p.key} onChange={(v) => act().setPriceField(p.id, 'unit', v)} />
+                  </td>
+                  <td>
+                    <button className="iconbtn" aria-label={'מחיקת ' + p.key} onClick={() => void deletePrice(p.id, p.key)}>
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="addrow">
+          <button className="btn small" onClick={() => setFocusId(act().addPrice())}>
+            + מחיר
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

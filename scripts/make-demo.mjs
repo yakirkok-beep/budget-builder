@@ -1,0 +1,127 @@
+/**
+ * Builds the public example template from the private real one, and its expected totals.
+ *
+ *   node scripts/make-demo.mjs
+ *
+ * Reads (private, never committed):  private/seed-2027.json, private/reference/prototype.html
+ * Writes (public):                   data/seed-demo.json, tests/expected-demo.json
+ *
+ * The example keeps the structure (events, params, formulas, categories, codes, participant counts)
+ * and replaces everything financial: 2026 plan/actuals are removed, notes are cleared, and prices,
+ * salaries and literal amounts get made-up values. The expected totals are computed with the
+ * prototype's own engine, so the app is still checked against an independent implementation.
+ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const real = JSON.parse(readFileSync(join(root, 'private/seed-2027.json'), 'utf8'));
+const demo = structuredClone(real);
+
+/* ---------------- made-up but stable numbers ---------------- */
+const hash = (s) => {
+  let x = 2166136261;
+  for (const ch of s) {
+    x ^= ch.codePointAt(0);
+    x = Math.imul(x, 16777619) >>> 0;
+  }
+  return x;
+};
+// 0.55 .. 0.95: noisy per item and lower overall, so totals don't hint at the real budget size
+const factorFor = (key) => 0.55 + (hash(key) % 41) / 100;
+const stepFor = (a) => (a < 20 ? 0.5 : a < 200 ? 5 : a < 2000 ? 10 : a < 20000 ? 50 : 100);
+const nice = (v) => Math.round(v / stepFor(Math.abs(v))) * stepFor(Math.abs(v));
+function fake(v, key, factor = factorFor(key)) {
+  if (typeof v !== 'number' || v === 0) return v;
+  let r = nice(v * factor);
+  if (r === v) r = nice(v * (factor < 1 ? 1.15 : 0.87));
+  if (r === v) r = v + stepFor(Math.abs(v));
+  return r;
+}
+/** Numbers of 10 and up inside a formula (e.g. =120*דולר); small multipliers like 4*... stay. */
+const fakeInFormula = (f, key) =>
+  typeof f === 'string' && f.trim().startsWith('=')
+    ? f.replace(/(?<![\p{L}\p{N}_.])(\d+(?:\.\d+)?)(?![\p{L}\p{N}_.])/gu, (m) => (Number(m) >= 10 ? String(fake(Number(m), key + ':' + m)) : m))
+    : f;
+const fakeVal = (v, key) => (typeof v === 'number' ? fake(v, key) : fakeInFormula(v, key));
+
+/* ---------------- transform ---------------- */
+demo.name = 'תקציב לדוגמה 2027';
+demo.globalNotes = {
+  ...demo.globalNotes,
+  'מעביד': 'עלות מעביד (מכפיל)',
+  'דולר': 'שער דולר',
+};
+for (const p of demo.prices) p.value = fakeVal(p.value, 'price:' + p.key);
+for (const s of demo.salary) {
+  const f = factorFor('salary:' + s.name); // one factor per row keeps the levels in order
+  for (const l of Object.keys(s.levels)) s.levels[l] = fake(s.levels[l], `salary:${s.name}:${l}`, f);
+  s.note = '';
+}
+const MONEY_PARAM = /מאבטח|מחיר|עלות|שכר|דמי|תשלום/;
+for (const ev of demo.events) {
+  ev.notes = [];
+  ev.incPlan = null;
+  ev.incAct = null;
+  for (const c of ev.cats) {
+    c.plan = null;
+    c.act = null;
+  }
+  for (const p of ev.params) {
+    p.note = '';
+    if (typeof p.value === 'number' && p.value >= 10 && MONEY_PARAM.test(p.key)) p.value = fake(p.value, 'param:' + ev.id + ':' + p.key);
+  }
+  for (const l of ev.lines) {
+    l.note = '';
+    l.price = fakeVal(l.price, 'line:' + l.id);
+  }
+  for (const i of ev.income) {
+    i.note = '';
+    i.price = fakeVal(i.price, 'income:' + i.id);
+  }
+}
+writeFileSync(join(root, 'data/seed-demo.json'), JSON.stringify(demo, null, 1) + '\n');
+
+/* ---------------- expected totals, from the prototype's engine ---------------- */
+const html = readFileSync(join(root, 'private/reference/prototype.html'), 'utf8').split('\n');
+const from = html.findIndex((l) => l.includes('/* ---------------- formula engine'));
+const to = html.findIndex((l) => l.includes('/* ---------------- state mutation'));
+if (from < 0 || to < 0) throw new Error('prototype engine not found');
+const engine = new Function('S', html.slice(from, to).join('\n') + '\nreturn compute;');
+const run = (budget) => engine(budget)();
+const r2 = (v) => Math.round(v * 100) / 100;
+
+const base = run(structuredClone(demo));
+const events = {};
+for (const ev of demo.events) {
+  const E = base.ev[ev.id];
+  if (E.issues.some((s) => /שגיאה|לא מוכר|מעגלית|חלוקה/.test(s))) throw new Error('formula error in demo event ' + ev.id + ': ' + E.issues);
+  events[ev.id] = {
+    name: ev.name,
+    expenses: r2(E.exp),
+    income: r2(E.inc),
+    participants: E.part,
+    categories: Object.fromEntries(ev.cats.map((c) => [c.name, r2(E.cats[c.id].a)])),
+  };
+}
+const scenario = (mutate) => {
+  const b = structuredClone(demo);
+  mutate(b);
+  return run(b);
+};
+const s400 = scenario((b) => (b.events.find((e) => e.id === 'semb').params.find((p) => p.key === 'חניכים').value = 400));
+const sInfl = scenario((b) => (b.globals['התייקרות'] = 0.03));
+const sSenior = scenario((b) => (b.globals['רמת_שכר'] = 'בכיר'));
+
+const expected = {
+  _note: 'Generated by scripts/make-demo.mjs from the prototype engine. Do not edit by hand.',
+  totals: { expenses: r2(base.tot.exp), income: r2(base.tot.inc), deficit: r2(base.tot.exp - base.tot.inc) },
+  events,
+  scenario_semb_400: { expenses: r2(s400.ev.semb.exp), income: r2(s400.ev.semb.inc) },
+  scenario_infl_3pct: { expenses: r2(sInfl.tot.exp) },
+  scenario_level_senior: { expenses: r2(sSenior.tot.exp) },
+};
+writeFileSync(join(root, 'tests/expected-demo.json'), JSON.stringify(expected, null, 2) + '\n');
+
+console.log('demo totals', expected.totals, 'senior', expected.scenario_level_senior.expenses, 'infl', expected.scenario_infl_3pct.expenses);
