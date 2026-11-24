@@ -3,16 +3,15 @@ import { budgetStore, useBudgetStore } from './store';
 import { Overlays } from './ui/components/Overlays';
 import { Header } from './ui/layout/Header';
 import { Ledger } from './ui/layout/Ledger';
-import { Tabs } from './ui/layout/Tabs';
-import { useRoute } from './ui/router';
-import { EventView } from './ui/views/event/EventView';
-import { Summary } from './ui/views/Summary';
-import { ParamsView } from './ui/views/ParamsView';
-import { SalaryView } from './ui/views/SalaryView';
-import { PriorityView } from './ui/views/PriorityView';
-import { DataView } from './ui/views/DataView';
-import type { Route } from './ui/router';
+import { MobileEvents, Sidebar, TabBar } from './ui/layout/Sidebar';
+import { useRoute, type Route } from './ui/router';
 import { useUndoKeys } from './ui/undo';
+import { DataView } from './ui/views/DataView';
+import { EventView } from './ui/views/event/EventView';
+import { ParamsView } from './ui/views/ParamsView';
+import { PriorityView } from './ui/views/PriorityView';
+import { SalaryView } from './ui/views/SalaryView';
+import { Summary } from './ui/views/Summary';
 
 function View({ route }: { route: Route }) {
   switch (route.view) {
@@ -41,22 +40,28 @@ export function App() {
   }, []);
 
   return (
-    <div className="wrap">
-      <Header />
-      {loaded ? (
-        <>
-          <Ledger />
-          <Tabs route={route} />
-          <main id="main">
-            <View route={route} />
-          </main>
-        </>
-      ) : (
-        <main>
-          <p className="muted">טוען את התקציב...</p>
-        </main>
-      )}
-      <footer className="foot">הנתונים שמורים רק בדפדפן הזה. מומלץ לייצא גיבוי מדי פעם.</footer>
+    <div className="app">
+      {loaded && <Sidebar route={route} />}
+      <div className="main">
+        <Header />
+        <div className="content">
+          {loaded ? (
+            <>
+              <Ledger />
+              <MobileEvents route={route} />
+              <main id="main">
+                <View route={route} />
+              </main>
+            </>
+          ) : (
+            <main>
+              <p className="muted">טוען את התקציב...</p>
+            </main>
+          )}
+        </div>
+        <footer className="foot">הנתונים שמורים רק בדפדפן הזה. מומלץ לייצא גיבוי מדי פעם.</footer>
+      </div>
+      {loaded && <TabBar route={route} />}
       <Overlays />
     </div>
   );

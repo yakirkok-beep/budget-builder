@@ -6,6 +6,7 @@ import { LEVELS, type FieldResult } from '../../domain/types';
 import { budgetStore, useBudgetStore, useResult } from '../../store';
 import { FxInput, KeyInput, TextInput } from '../components/inputs';
 import { confirmDialog } from '../uiStore';
+import { PageHead } from '../components/PageHead';
 
 const act = () => budgetStore.getState();
 
@@ -34,7 +35,9 @@ export function ParamsView() {
   const globalResult = (k: string): FieldResult => (R.globalErrors[k] ? { err: R.globalErrors[k]! } : { v: R.globals[k] ?? null });
 
   return (
-    <div className="grid2">
+    <>
+      <PageHead eyebrow="הגדרות" title="פרמטרים ומחירון" sub="ערכים שמשפיעים על כל המפעלים, ומחירים שהנוסחאות משתמשות בהם" />
+      <div className="grid2">
       <section className="card" aria-labelledby="globals-title">
         <h3 id="globals-title">
           פרמטרים כלליים <span className="hint">משפיעים על כל המפעלים</span>
@@ -139,6 +142,7 @@ export function ParamsView() {
           </button>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

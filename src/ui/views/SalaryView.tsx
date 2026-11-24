@@ -7,6 +7,7 @@ import { budgetStore, useBudgetStore, useResult } from '../../store';
 import { fmt } from '../format';
 import { FxInput, KeyInput, TextInput } from '../components/inputs';
 import { confirmDialog } from '../uiStore';
+import { PageHead } from '../components/PageHead';
 
 const act = () => budgetStore.getState();
 
@@ -32,6 +33,8 @@ export function SalaryView() {
   const [focusId, setFocusId] = useState<string | null>(null);
 
   return (
+    <>
+    <PageHead eyebrow="הגדרות" title="שכר מנחים" sub="שכר מנחה לאירוע לפי סוג האירוע ורמת הוותק" />
     <section className="card" aria-labelledby="salary-title">
       <h3 id="salary-title">
         טבלת שכר מנחים לאירוע{' '}
@@ -101,5 +104,6 @@ export function SalaryView() {
         </button>
       </div>
     </section>
+    </>
   );
 }

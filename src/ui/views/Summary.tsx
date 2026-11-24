@@ -3,6 +3,7 @@ import type { Issue } from '../../domain/types';
 import { budgetStore, useBudgetStore, useResult } from '../../store';
 import { changeClass, fmt, fmtSigned } from '../format';
 import { eventHref, navigate } from '../router';
+import { PageHead } from '../components/PageHead';
 
 export function Summary() {
   const events = useBudgetStore((s) => s.budget?.events);
@@ -16,7 +17,9 @@ export function Summary() {
   for (const i of R.issues) issuesByEvent.set(i.ev, [...(issuesByEvent.get(i.ev) ?? []), i]);
 
   return (
-    <div className="sumgrid">
+    <>
+      <PageHead eyebrow="התקציב" title="ריכוז" sub="כל המפעלים, השוואה ל-2026, ומה כדאי לבדוק" />
+      <div className="sumgrid">
       <section className="card" aria-labelledby="sum-title">
         <h3 id="sum-title">
           כל המפעלים <span className="hint">לחיצה על שורה פותחת את המפעל. התיבה קובעת אם הוא נכלל בתקציב.</span>
@@ -54,7 +57,7 @@ export function Summary() {
                         onChange={(ev) => budgetStore.getState().setEventField(e.id, 'active', ev.target.checked)}
                       />
                     </td>
-                    <td>
+                    <td className="sum-name">
                       <a href={eventHref(e.id)} onClick={(ev) => ev.stopPropagation()}>
                         {e.name || 'מפעל ללא שם'}
                       </a>{' '}
@@ -79,9 +82,9 @@ export function Summary() {
                 <td className="n">{fmt(T.def)}</td>
                 <td />
                 <td />
-                <td className="n">{fmt(T.plan26)}</td>
-                <td className="n">{fmt(T.act26)}</td>
-                <td className={`n ${changeClass(T.exp - T.plan26)}`}>{fmtSigned(T.exp - T.plan26)}</td>
+                <td className="n">{T.plan26 ? fmt(T.plan26) : '-'}</td>
+                <td className="n">{T.act26 ? fmt(T.act26) : '-'}</td>
+                <td className={`n ${T.plan26 ? changeClass(T.exp - T.plan26) : ''}`}>{T.plan26 ? fmtSigned(T.exp - T.plan26) : '-'}</td>
               </tr>
             </tbody>
           </table>
@@ -119,11 +122,11 @@ export function Summary() {
           </div>
           <div className="legend" aria-hidden="true">
             <span>
-              <i style={{ background: 'var(--accent)' }} />
+              <i style={{ background: 'var(--ez-navy)' }} />
               הוצאות
             </span>
             <span>
-              <i style={{ background: 'var(--good)', opacity: 0.55 }} />
+              <i style={{ background: 'var(--ez-gold)' }} />
               הכנסות
             </span>
           </div>
@@ -149,6 +152,7 @@ export function Summary() {
           )}
         </section>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

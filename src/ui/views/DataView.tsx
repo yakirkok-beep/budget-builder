@@ -4,6 +4,7 @@ import { isStoragePersisted, requestPersistentStorage, useBudgetStore } from '..
 import { deleteBudget, exportExcel, exportJson, importJsonFile, resetToTemplate, switchBudget } from '../actions';
 import { openDialog, toast } from '../uiStore';
 import { NewBudgetDialog } from './NewBudgetDialog';
+import { PageHead } from '../components/PageHead';
 
 const dayFmt = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' });
 const timeFmt = new Intl.DateTimeFormat('he-IL', { timeStyle: 'short' });
@@ -54,7 +55,9 @@ export function DataView() {
   const file = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="grid2">
+    <>
+      <PageHead eyebrow="הגדרות" title="שמירה וגיבוי" sub="תקציבים שמורים, גיבוי והעברה, ואיפוס" />
+      <div className="grid2">
       <section className="card" aria-labelledby="budgets-title">
         <h3 id="budgets-title">
           התקציבים השמורים <span className="hint">למשל טיוטה ותרחיש חיסכון, זה לצד זה</span>
@@ -159,6 +162,7 @@ export function DataView() {
           </button>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

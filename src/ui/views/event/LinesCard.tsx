@@ -46,7 +46,7 @@ export function LinesCard({ ev, E }: { ev: BudgetEvent; E: EventResult }) {
     rows.push(
       <tr className="grp" key={'g:' + (g.name ?? '')}>
         <td colSpan={COLS}>
-          {g.name ?? <span className="err">שורות בלי קטגוריה תקינה</span>}
+          {g.name !== null ? <span className="gname">{g.name}</span> : <span className="gname err">שורות בלי קטגוריה תקינה</span>}
           <span className="gsum">{fmt(sum)}</span>
         </td>
       </tr>,

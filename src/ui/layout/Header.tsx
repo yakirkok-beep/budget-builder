@@ -1,7 +1,9 @@
+/** Top bar (like the portal's .ez-topbar): budget name, save status, undo/redo, budgets, Excel. */
 import { STATUS_TEXT, budgetStore, useBudgetStore, type SaveStatus } from '../../store';
 import { exportExcel, switchBudget } from '../actions';
-import { undoRedo } from '../undo';
+import { Kit } from '../components/Kit';
 import { TextInput } from '../components/inputs';
+import { undoRedo } from '../undo';
 import { openDialog } from '../uiStore';
 import { NewBudgetDialog } from '../views/NewBudgetDialog';
 
@@ -14,10 +16,10 @@ function UndoButtons() {
   const canRedo = useBudgetStore((s) => s.canRedo);
   return (
     <>
-      <button className="btn ghost" disabled={!canUndo} title="בטל (Ctrl+Z)" aria-keyshortcuts="Control+Z" data-testid="undo" onClick={() => undoRedo('undo')}>
+      <button className="btn small ghost" disabled={!canUndo} title="בטל (Ctrl+Z)" aria-keyshortcuts="Control+Z" data-testid="undo" onClick={() => undoRedo('undo')}>
         בטל
       </button>
-      <button className="btn ghost" disabled={!canRedo} title="בצע שוב (Ctrl+Y)" aria-keyshortcuts="Control+Y" data-testid="redo" onClick={() => undoRedo('redo')}>
+      <button className="btn small ghost" disabled={!canRedo} title="בצע שוב (Ctrl+Y)" aria-keyshortcuts="Control+Y" data-testid="redo" onClick={() => undoRedo('redo')}>
         בצע שוב
       </button>
     </>
@@ -31,13 +33,7 @@ function BudgetSwitcher() {
   if (!currentId) return null;
   const list = budgets.some((b) => b.id === currentId) ? budgets : [{ id: currentId, name: currentName, updatedAt: 0 }, ...budgets];
   return (
-    <select
-      className="budgets"
-      value={currentId}
-      aria-label="תקציבים שמורים"
-      data-testid="budget-select"
-      onChange={(e) => void switchBudget(e.target.value)}
-    >
+    <select className="budgets" value={currentId} aria-label="תקציבים שמורים" data-testid="budget-select" onChange={(e) => void switchBudget(e.target.value)}>
       {list.map((b) => (
         <option key={b.id} value={b.id}>
           {b.id === currentId ? currentName || 'תקציב ללא שם' : b.name || 'תקציב ללא שם'}
@@ -54,9 +50,9 @@ export function Header() {
   const storageError = useBudgetStore((s) => s.storageError);
   return (
     <>
-      <header className="top">
+      <header className="topbar">
         <div className="brand">
-          <small>מחלקת ההדרכה · תנועת עזרא · בונה תקציב</small>
+          <small>בונה תקציב · מחלקת ההדרכה</small>
           <TextInput id={BUDGET_NAME_ID} className="budget-name" value={name} label="שם התקציב" onChange={(v) => budgetStore.getState().setBudgetName(v)} />
         </div>
         <div className={`status ${STATUS_CLASS[status]}`} role="status" aria-live="polite" data-testid="save-status">
@@ -67,10 +63,12 @@ export function Header() {
           <div className="top-actions">
             <UndoButtons />
             <BudgetSwitcher />
-            <button className="btn" onClick={() => openDialog(<NewBudgetDialog />)}>
+            <button className="btn small" onClick={() => openDialog(<NewBudgetDialog />)}>
+              <Kit name="newBudget" />
               תקציב חדש
             </button>
-            <button className="btn primary" data-testid="export-xlsx" onClick={() => void exportExcel()}>
+            <button className="btn small primary" data-testid="export-xlsx" onClick={() => void exportExcel()}>
+              <Kit name="excel" />
               ייצוא ל-Excel
             </button>
           </div>

@@ -1,6 +1,7 @@
 /** The event screen (CLAUDE.md section 8.3): the main working screen. */
 import { budgetStore, useBudgetStore, useResult } from '../../../store';
 import { TextInput } from '../../components/inputs';
+import { PageHead } from '../../components/PageHead';
 import { eventHref, navigate } from '../../router';
 import { confirmDialog, toast } from '../../uiStore';
 import { CategoriesCard } from './CategoriesCard';
@@ -40,28 +41,30 @@ export function EventView({ evId }: { evId: string }) {
 
   return (
     <>
-      <div className="evhead">
-        <TextInput className="title" value={ev.name} label="שם המפעל" testId="event-name" onChange={(v) => act().setEventField(ev.id, 'name', v)} />
-        <label className={`pill ${ev.active ? 'good' : ''}`}>
-          <input type="checkbox" checked={ev.active} onChange={(e) => act().setEventField(ev.id, 'active', e.target.checked)} /> נכלל בתקציב
-        </label>
-        <span className="spacer" />
-        <button
-          className="btn small"
-          onClick={() => {
-            navigate(eventHref(act().duplicateEvent(ev.id)));
-            toast('נוצר עותק של המפעל');
-          }}
-        >
-          שכפול מפעל
-        </button>
-        <button className="btn small danger" onClick={() => void remove()}>
-          מחיקת מפעל
-        </button>
-        <div className="sub">
-          <TextInput value={ev.sub} label="תיאור קצר" placeholder="תיאור קצר (לא חובה)" onChange={(v) => act().setEventField(ev.id, 'sub', v)} />
-        </div>
-      </div>
+      <PageHead
+        eyebrow="מפעל"
+        title={<TextInput className="title" value={ev.name} label="שם המפעל" testId="event-name" onChange={(v) => act().setEventField(ev.id, 'name', v)} />}
+        sub={<TextInput value={ev.sub} label="תיאור קצר" placeholder="תיאור קצר (לא חובה)" onChange={(v) => act().setEventField(ev.id, 'sub', v)} />}
+        actions={
+          <>
+            <label className={`pill ${ev.active ? 'good' : ''}`}>
+              <input type="checkbox" checked={ev.active} onChange={(e) => act().setEventField(ev.id, 'active', e.target.checked)} /> נכלל בתקציב
+            </label>
+            <button
+              className="btn small"
+              onClick={() => {
+                navigate(eventHref(act().duplicateEvent(ev.id)));
+                toast('נוצר עותק של המפעל');
+              }}
+            >
+              שכפול מפעל
+            </button>
+            <button className="btn small danger" onClick={() => void remove()}>
+              מחיקת מפעל
+            </button>
+          </>
+        }
+      />
       <div className="evgrid">
         <div className="evmain">
           <EventNames ev={ev} E={E}>

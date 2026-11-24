@@ -5,6 +5,7 @@ import { useResult } from '../../store';
 import { copyText } from '../clipboard';
 import { fmt, MONTHS } from '../format';
 import { eventHref } from '../router';
+import { PageHead } from '../components/PageHead';
 
 function Cell({ v }: { v: number }) {
   return <td className={`n ${v ? '' : 'zero'}`}>{v ? fmt(v) : ''}</td>;
@@ -32,16 +33,22 @@ export function PriorityView() {
   const R = useResult()!;
   const T = R.priority;
   return (
+    <>
+    <PageHead
+      eyebrow="דוחות"
+      title="טבלת פריוריטי"
+      sub="סעיף לכל קטגוריה והכנסה, פרוס ל-12 תקופות"
+      actions={
+        <button className="btn small primary" data-testid="copy-tsv" onClick={() => void copyText(priorityToTsv(T), 'הטבלה הועתקה. אפשר להדביק ב-Excel')}>
+          העתקת הטבלה ל-Excel
+        </button>
+      }
+    />
     <section className="card" aria-labelledby="pri-title">
       <h3 id="pri-title">
         טבלת סעיפים לפריוריטי{' '}
         <span className="hint">P = הוצאה, S = הכנסה. הכנסות נרשמות בתקופה 1, "שנתי" נפרס שווה ל-12 חודשים. רק מפעלים שנכללים בתקציב.</span>
       </h3>
-      <div className="addrow" style={{ margin: '0 0 10px' }}>
-        <button className="btn small" data-testid="copy-tsv" onClick={() => void copyText(priorityToTsv(T), 'הטבלה הועתקה. אפשר להדביק ב-Excel')}>
-          העתקת הטבלה (להדבקה ב-Excel)
-        </button>
-      </div>
       <div className="scroll">
         <table className="pri-table" data-testid="priority-table">
           <thead>
@@ -83,5 +90,6 @@ export function PriorityView() {
         </table>
       </div>
     </section>
+    </>
   );
 }
