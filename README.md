@@ -1,5 +1,7 @@
 # בונה תקציב - מחלקת ההדרכה, תנועת עזרא
 
+**האתר:** https://yakirkok-beep.github.io/budget-builder/
+
 אתר סטטי (Vite + React + TypeScript) שבונה את התקציב השנתי של מחלקת ההדרכה מתוך פרמטרים של כל מפעל.
 מקור האמת לדרישות: [CLAUDE.md](CLAUDE.md). מקור האמת ללוגיקה: אב הטיפוס (פרטי, ב-`private/reference/`).
 
